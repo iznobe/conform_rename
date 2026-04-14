@@ -23,16 +23,16 @@ declare -i LongPath NbScan NbRep NbFile NbRepModified NbFileModified NbRepNOTMod
 echo "liste des erreur ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > /tmp/error.log
 echo "-------------------" > /tmp/modifs
 
-
 for nomOriginal in "${execDir:=$PWD}/"**/*; do
     NbScan+=1
     nomModif=$( echo "$nomOriginal" | sed 's@ */ *@/@g' ) # traitement des espaces
 
     # remplacement d'un maxima de caractères interdits par windows :  ><\:"|?* par " _ " + les espaces dans les noms .
     if [ $all_spaces = true ]; then
-        nomModif=$( echo "$nomModif"  | tr '><"|?*:\\ ' '_________%' ) # version all spaces .
+        nomModif=$( echo "$nomModif" | tr '><"|?*:\\ ' '_________%' ) # version all spaces .
     else
-        nomModif=$( echo "$nomModif"  | tr '><"|?*:\\' '________%' ) # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
+        nomModif=$( echo "$nomModif" | tr '><"|?*:\\' '________%' ) # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
+        nomModif=$(echo "$nomModif") # suppression des espaces en début et fin de nom
     fi
 
     nomArgModif=$( echo "$nomModif" | grep -o '[^/]*$' ) # Récupére le dernier argument
