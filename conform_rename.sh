@@ -19,23 +19,23 @@ shopt -s globstar
 ### Liste des fichiers exclus
 Exclus=(CON PRN aux NUL COM1 COM2 COM3 COM4 COM5 COM6 COM7 COM8 COM9 LPT1 LPT2 LPT3 LPT4 LPT5 LPT6 LPT7 LPT8 LPT9)
 
-declare -i LongPath NbScan NbRep NbFile NbRepModified NbFileModified NbRepNOTModified NbFileNOTModified; Debut=$(date +%s);
+declare -i LongPath=0 NbScan=0 NbRep=0 NbFile=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 echo "liste des erreur ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > /tmp/error.log
 echo "-------------------" > /tmp/modifs
 
+
 for nomOriginal in "${execDir:=$PWD}/"**/*; do
     NbScan+=1
-    nomModif=$( echo "$nomOriginal" | sed 's@ */ *@/@g' ) # traitement des espaces
-
-    # remplacement d'un maxima de caractères interdits par windows :  ><\:"|?* par " _ " + les espaces dans les noms .
+    nomModif=$( echo "$nomOriginal" | sed 's@ */ *@/@g' ) # traitement des espaces multiples au milieu du nom
+	nomModif=$(echo "$nomModif") # traitement des espaces en début et fin de nom
+    # remplacement d'un maxima de caractères interdits par windows :  ><\:"|?* par " _ " + les espaces ( uniques et restant ) dans les noms .
     if [ $all_spaces = true ]; then
-        nomModif=$( echo "$nomModif" | tr '><"|?*:\\ ' '_________%' ) # version all spaces .
+        nomModif=$(echo "$nomModif"  | tr '><"|?*:\\ ' '_________%' ) # version all spaces .
     else
-        nomModif=$( echo "$nomModif" | tr '><"|?*:\\' '________%' ) # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
-        nomModif=$(echo "$nomModif") # suppression des espaces en début et fin de nom
+        nomModif=$(echo "$nomModif" | tr '><"|?*:\\' '________%' ) # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
     fi
 
-    nomArgModif=$( echo "$nomModif" | grep -o '[^/]*$' ) # Récupére le dernier argument
+    nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$' ) # Récupére le dernier argument
     if [[ " ${Exclus[*]} " ==  *" $nomArgModif "*  ]]; then nomModif+=_ ; fi # Vérifions si le nom n'est pas interdit.
 
     if [[ "${#nomArgModif}" -ge 248 || "${#nomModif}"  -ge 32384 ]] ; then # Vérifions si la longueur n'est pas excessive
