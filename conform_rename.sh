@@ -96,6 +96,6 @@ echo ""
 echo "liste des fichiers modifiés dans '/tmp/modifs'"
 echo "liste des erreurs dans '/tmp/error.log'"
 echo ""
-if [[ "$LongPath" -ne 0 ]]; then echo "vous avez $LongPath répertoires de taille trop importante. Voir le détail dans /tmp/error.log" ; fi
+(( LongPath )) && echo "vous avez $LongPath répertoires de taille trop importante. Voir le détail dans /tmp/error.log"
 
 echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete"
