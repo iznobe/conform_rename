@@ -9,7 +9,7 @@
 
 # variables a ajuster :
 modif_activ=false # mettre : true pour appliquer les modifications , false pour visualiser les noms sans les modifier
-all_spaces=false # mettre : true pour remplacer tous les espaces partout dans les noms de dossiers et de fichiers
+all_spaces=true # mettre : true pour remplacer tous les espaces partout dans les noms de dossiers et de fichiers
 execDir="" # Pour appliquer dans un dossier specifique , mettre le chemin absolu du dossier ici .
 #### FIN ####
 
@@ -23,13 +23,16 @@ echo "-------------------" > /tmp/modifs
 
 for nomOriginal in "${execDir:=$PWD}/"**/*; do
     NbScan+=1
-    nomModif=$(echo $nomOriginal | sed 's@ */ *@/@g') # traitement des espaces en debut et fin du nom
+#    nomModif=$(echo $nomOriginal)
+    nomModif=$(echo $nomOriginal | sed 's@ */ *@/@g') # traitement des espaces en debut du nom
+    #echo " nomModif apres traitement des espaces : '$nomModif'"
     # remplacement d'un maxima de caractères interdits par windows :  ><\:"|?* par " _ " + les espaces ( uniques et restant ) dans les noms .
     if [ $all_spaces = true ]; then
-        nomModif=$(echo $nomModif | tr '><"|?*\\ :'    '________%') # version all spaces .
+        nomModif=$(echo "$nomModif" | tr '><"|?*\\ :'   '________%') # version all spaces .
     else
-        nomModif=$(echo $nomModif | tr '><"|?*\\:'    '_______%') # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
+        nomModif=$(echo "$nomModif" | tr '><"|?*\\:'   '_______%') # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
     fi
+    #echo " nomModif apres traitement des caracteres spéciaux : '$nomModif'"
 
     nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$' ) # Récupére le dernier argument
     if [[ " ${Exclus[*]} " ==  *" $nomArgModif "*  ]]; then nomModif+=_ ; fi # Vérifions si le nom n'est pas interdit.
@@ -69,7 +72,7 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
                 if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
                     nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
                 fi
-                    echo "renommage du fichier : mv $nomOriginal ==> $nomModif"
+                    echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
                 if [ "$modif_activ" = true ] ; then
                     mv "$nomOriginal" "$nomModif"
                 if test -e "$nomModif" ; then # on verifie que le fichier renommé existe bien , si le fichier existe on incremente et on enregistre
