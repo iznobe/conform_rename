@@ -23,12 +23,11 @@ echo "-------------------" > /tmp/modifs
 
 for nomOriginal in "${execDir:=$PWD}/"**/*; do
     NbScan+=1
-#    nomModif=$(echo $nomOriginal)
-    nomModif=$(echo $nomOriginal | sed 's@ */ *@/@g') # traitement des espaces en debut du nom
+    nomModif=$(echo $nomOriginal | sed 's@ */ *@/@g') # traitement des espaces en debut et fin du nom et les espaces consécutifs au mileiu du nom sont raamenés a un seul espace
     #echo " nomModif apres traitement des espaces : '$nomModif'"
     # remplacement d'un maxima de caractères interdits par windows :  ><\:"|?* par " _ " + les espaces ( uniques et restant ) dans les noms .
     if [ $all_spaces = true ]; then
-        nomModif=$(echo "$nomModif" | tr '><"|?*\\ :'   '________%') # version all spaces .
+        nomModif=$(echo "$nomModif" | tr '><"|?*\\ :'  '________%') # version all spaces .
     else
         nomModif=$(echo "$nomModif" | tr '><"|?*\\:'   '_______%') # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
     fi
@@ -37,9 +36,9 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
     nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$' ) # Récupére le dernier argument
     if [[ " ${Exclus[*]} " ==  *" $nomArgModif "*  ]]; then nomModif+=_ ; fi # Vérifions si le nom n'est pas interdit.
 
-    if [[ "${#nomArgModif}" -ge 248 || "${#nomModif}"  -ge 32384 ]] ; then # Vérifions si la longueur n'est pas excessive
-        LongPath=$((LongPath+1))
-        echo "chemin de fichier / dossier trop long ! $LongPath : $nomModif" >> /tmp/error.log
+    if (( "${#nomArgModif}" >= 248 || "${#nomModif}" >= 32384 )) ; then # Vérifions si la longueur n'est pas excessive
+        LongPath+=1
+        echo "chemin de fichier ou de dossier trop long ! $LongPath : $nomModif" >> /tmp/error.log
     fi
 
     if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
@@ -49,7 +48,7 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
                 NbRepNOTModified+=1
                 echo "$NbRep un dossier du meme nom existe deja : $nomModif impossible de renommer $nomOriginal" >> /tmp/error.log
             else # si pas de dossier du meme nom , on renomme
-                if [ "$modif_activ" = true ] ; then
+                if [ $modif_activ = true ] ; then
                     mkdir -p "$nomModif"
                     echo "on va renommer le répertoire avec la commande suivante : mkdir $nomOriginal => $nomModif"
                     if test -e "$nomModif" ; then # si la creation du repertoire a reussi , on enregistre
@@ -73,7 +72,7 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
                     nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
                 fi
                     echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
-                if [ "$modif_activ" = true ] ; then
+                if [ $modif_activ = true ] ; then
                     mv "$nomOriginal" "$nomModif"
                 if test -e "$nomModif" ; then # on verifie que le fichier renommé existe bien , si le fichier existe on incremente et on enregistre
                     echo "$NbScan RENOM : mv $nomOriginal en : $nomModif" >> /tmp/modifs
@@ -89,7 +88,6 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
             echo "$NbScan erreur inconnue pour : $nomOriginal" >> /tmp/error.log
         fi
     fi
-
 done
 
 echo ""
