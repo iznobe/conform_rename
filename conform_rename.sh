@@ -9,7 +9,7 @@
 
 # variables a ajuster :
 modif_activ=false # mettre : true pour appliquer les modifications , false pour visualiser les noms sans les modifier
-all_spaces=true # mettre : true pour remplacer tous les espaces partout dans les noms de dossiers et de fichiers
+all_spaces=false # mettre : true pour remplacer tous les espaces partout dans les noms de dossiers et de fichiers
 execDir="" # Pour appliquer dans un dossier specifique , mettre le chemin absolu du dossier ici .
 #### FIN ####
 
