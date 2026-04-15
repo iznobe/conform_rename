@@ -26,7 +26,7 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
     nomModif=$(echo $nomOriginal | sed 's@ */ *@/@g') # traitement des espaces en debut et fin du nom
     # remplacement d'un maxima de caractères interdits par windows :  ><\:"|?* par " _ " + les espaces ( uniques et restant ) dans les noms .
     if [ $all_spaces = true ]; then
-        nomModif=$(echo $nomModif | tr '><"|?*\\ :'    '_________%') # version all spaces .
+        nomModif=$(echo $nomModif | tr '><"|?*\\ :'    '________%') # version all spaces .
     else
         nomModif=$(echo $nomModif | tr '><"|?*\\:'    '_______%') # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
     fi
