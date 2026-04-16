@@ -37,6 +37,7 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
         fi
     else
         NbRepScanned+=1
+        baseName="$nomOriginal"
     fi
 
     nomModif="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces en debut et fin du nom et les espaces consécutifs au milieu du nom sont ramenés a un seul espace
@@ -61,7 +62,7 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
         if test -d "$nomOriginal" ; then # si c' est un dossier
             if test -e "$nomModif" ; then # on verifie si il existe un dossier du meme nom avant de renommer
                 NbRepNOTModified+=1
-                echo "$NbRepScanned un dossier du meme nom existe deja : $nomModif impossible de renommer $nomOriginal" >> /tmp/error.log
+                echo "$NbRepNOTModified un dossier du meme nom existe deja : $nomModif impossible de renommer $nomOriginal" >> /tmp/error.log
             else # si pas de dossier du meme nom , on renomme
                 if test "$modif_activ" = true; then
                     mkdir -p "$nomModif"
