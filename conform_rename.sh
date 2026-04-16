@@ -35,10 +35,11 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
             baseName="${nomOriginal%.*}" # get filename without extension
             baseName="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces
             baseName="$baseName.$ext"
+        else
+            baseName="$nomOriginal"
         fi
     else
         NbRepScanned+=1
-        baseName="$nomOriginal"
     fi
 
     nomModif="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces en debut et fin du nom et les espaces consécutifs au milieu du nom sont ramenés a un seul espace
@@ -105,13 +106,15 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
     fi
 done
 
-echo ""
-echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés"
-echo "$NbFileNOTModified fichiers , $NbRepNOTModified répertoires n ' ayant pas pu etre modifiés , le tout en $(($(date +%s)-Debut)) secondes."
-echo ""
-echo "liste des dossiers et fichiers modifiés dans '/tmp/modifs'"
-echo "liste des erreurs dans '/tmp/error.log'"
-echo ""
-(( LongPath )) && echo "vous avez $LongPath répertoires de taille trop importante. Voir le détail dans /tmp/error.log"
+echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes."
+echo;
+(( NbFileModified || NbRepModified )) && echo "liste des dossiers et fichiers modifiés dans '/tmp/modifs'"
+(( NbRepModified )) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete"
 
-echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete"
+if (( NbFileNOTModified || NbRepNOTModified )); then
+    echo;
+    echo "$NbFileNOTModified fichiers , $NbRepNOTModified répertoires n ' ayant pas pu etre modifiés"
+    echo "liste des erreurs dans '/tmp/error.log'"
+    echo;
+fi
+(( LongPath )) && echo "vous avez $LongPath répertoires de taille trop importante. Voir le détail dans /tmp/error.log"
