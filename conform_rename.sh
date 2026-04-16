@@ -19,7 +19,7 @@ shopt -s globstar
 
 ### Liste des fichiers exclus
 Exclus=(CON PRN aux NUL COM1 COM2 COM3 COM4 COM5 COM6 COM7 COM8 COM9 LPT1 LPT2 LPT3 LPT4 LPT5 LPT6 LPT7 LPT8 LPT9)
-declare -i LongPath=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
+declare -i NbScan=0 LongPath=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 echo "liste des erreur ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > /tmp/error.log
 echo "-------------------" > /tmp/modifs
 
@@ -29,8 +29,6 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
     if test -f "$nomOriginal"; then
         NbFileScanned+=1
         ext="${nomOriginal##*.}" # get extension without filename
-        #baseName=${nomOriginal%%.*} # get filename without extension
-        #echo "nomOriginal= '$nomOriginal' , EXT= '$ext' , baseName= '$baseName'"
         if test "$nomOriginal" != "$ext"; then
             baseName="${nomOriginal%.*}" # get filename without extension
             baseName="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces
@@ -88,18 +86,18 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
                 if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
                     nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
                 fi
-                    echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
+                echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
                 if [ "$modif_activ" = true ] ; then
                     mv "$nomOriginal" "$nomModif"
-                if test -e "$nomModif" ; then # on verifie que le fichier renommé existe bien , si le fichier existe on incremente et on enregistre
-                    echo "$NbScan RENOM : mv $nomOriginal en : $nomModif" >> /tmp/modifs
-                    NbFileModified+=1
-                else
-                    NbFileNOTModified+=1
-                    echo "$NbScan erreur inconnue pour fichier : $nomOriginal" >> /tmp/error.log
+                    if test -e "$nomModif" ; then # on verifie que le fichier renommé existe bien , si le fichier existe on incremente et on enregistre
+                        echo "$NbScan RENOM : mv $nomOriginal en : $nomModif" >> /tmp/modifs
+                        NbFileModified+=1
+                    else
+                        NbFileNOTModified+=1
+                        echo "$NbScan erreur inconnue pour fichier : $nomOriginal" >> /tmp/error.log
+                    fi
                 fi
             fi
-        fi
         else
             echo "$NbScan erreur inconnue pour : $nomOriginal" >> /tmp/error.log
         fi
