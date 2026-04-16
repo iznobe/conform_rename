@@ -18,13 +18,12 @@ execDir="" # Pour appliquer dans un dossier specifique , mettre le chemin absolu
 shopt -s globstar
 
 ### Liste des fichiers exclus
-Exclus=(CON PRN aux NUL COM1 COM2 COM3 COM4 COM5 COM6 COM7 COM8 COM9 LPT1 LPT2 LPT3 LPT4 LPT5 LPT6 LPT7 LPT8 LPT9)
-declare -i NbScan=0 LongPath=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
+Exclus=( CON PRN aux NUL COM{1..9} LPT{1..9} )
+declare -i LongPath=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 echo "liste des erreur ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > /tmp/error.log
 echo "-------------------" > /tmp/modifs
 
 for nomOriginal in "${execDir:=$PWD}/"**/*; do
-    NbScan+=1
     # permet de supprimer les espaces avant l' extension de fichier :
     if test -f "$nomOriginal"; then
         NbFileScanned+=1
@@ -43,7 +42,7 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
     nomModif="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces en debut et fin du nom et les espaces consécutifs au milieu du nom sont ramenés a un seul espace
     #echo " nomModif apres traitement des espaces : '$nomModif'"
     # remplacement d'un maxima de caractères interdits par windows :  ><\:"|?* par " _ " + les espaces ( uniques et restant ) dans les noms .
-    if [ "$all_spaces" = true ]; then
+    if test "$all_spaces" = true; then
         nomModif="$(echo "$nomModif" | tr '><"|?*\\ :'  '________%')" # version all spaces .
     else
         nomModif="$(echo "$nomModif" | tr '><"|?*\\:'   '_______%')" # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
@@ -64,22 +63,17 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
                 NbRepNOTModified+=1
                 echo "$NbRepScanned un dossier du meme nom existe deja : $nomModif impossible de renommer $nomOriginal" >> /tmp/error.log
             else # si pas de dossier du meme nom , on renomme
-                if [ "$modif_activ" = true ] ; then
+                if test "$modif_activ" = true; then
                     mkdir -p "$nomModif"
                     echo "on va renommer le répertoire avec la commande suivante : mkdir $nomOriginal => $nomModif"
-                    if test -e "$nomModif" ; then # si la creation du repertoire a reussi , on enregistre
-                        echo "$NbScan CREER_REP : mkdir $nomModif" >> /tmp/modifs
-                        NbRepModified+=1
-                    else
-                        NbRepNOTModified+=1
-                        echo "$NbScan erreur inconnue pour le dossier : $nomOriginal" >> /tmp/error.log
-                    fi
+                    NbRepModified+=1
+                    echo "$NbRepModified CREER_REP : mkdir $nomModif" >> /tmp/modifs
                 fi
             fi
         elif test -f "$nomOriginal" ; then # si c est un fichier
             if test -e "$nomModif" ; then # on verifie si il existe un fichier du meme nom avant de renommer
                 NbFileNOTModified+=1
-                echo "$NbScan un fichier du meme nom existe deja : $nomModif impossible de renommer $nomOriginal" >> /tmp/error.log
+                echo "$NbFileNOTModified un fichier du meme nom existe deja : $nomModif impossible de renommer $nomOriginal" >> /tmp/error.log
             else # si pas de fichier du meme nom , on renomme
                 pathOriginal=${nomOriginal%/*} # chemin du repertoire original
                 pathModif=${nomModif%/*} # chemin apres modif
@@ -87,19 +81,12 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
                     nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
                 fi
                 echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
-                if [ "$modif_activ" = true ] ; then
+                if test "$modif_activ" = true; then
                     mv "$nomOriginal" "$nomModif"
-                    if test -e "$nomModif" ; then # on verifie que le fichier renommé existe bien , si le fichier existe on incremente et on enregistre
-                        echo "$NbScan RENOM : mv $nomOriginal en : $nomModif" >> /tmp/modifs
-                        NbFileModified+=1
-                    else
-                        NbFileNOTModified+=1
-                        echo "$NbScan erreur inconnue pour fichier : $nomOriginal" >> /tmp/error.log
-                    fi
+                    NbFileModified+=1
+                    echo "$NbFileModified RENOM : mv $nomOriginal en : $nomModif" >> /tmp/modifs
                 fi
             fi
-        else
-            echo "$NbScan erreur inconnue pour : $nomOriginal" >> /tmp/error.log
         fi
     fi
 done
