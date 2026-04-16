@@ -35,11 +35,10 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
             baseName="${nomOriginal%.*}" # get filename without extension
             baseName="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces
             baseName="$baseName.$ext"
-        else
-            baseName="$nomOriginal"
         fi
     else
         NbRepScanned+=1
+        baseName="$nomOriginal"
     fi
 
     nomModif="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces en debut et fin du nom et les espaces consécutifs au milieu du nom sont ramenés a un seul espace
