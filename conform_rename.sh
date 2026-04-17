@@ -12,69 +12,97 @@
 # variables a ajuster :
 modif_activ=false # mettre : true pour appliquer les modifications , false pour visualiser les noms sans les modifier
 all_spaces=false # mettre : true pour remplacer tous les espaces partout dans les noms de dossiers et de fichiers
-execDir="" # Pour appliquer dans un dossier specifique , mettre le chemin absolu du dossier ici .
+execDir="" # Pour appliquer dans un dossier specifique , mettre le chemin ABSOLU du dossier ici .
+
 #### FIN ####
 
 shopt -s globstar
 
+clean_complete_name() {
+    local baseName="$1"
+
+    # Nettoyage des espaces (début, fin, autour des /, multiples)
+    baseName=$(printf '%s' "$baseName" | sed -E '
+    s/^[[:space:]]+//;
+    s/[[:space:]]+$//;
+    s/[[:space:]]*\/[[:space:]]*/\//g;
+    s/[[:space:]]+/ /g
+    ')
+    # Remplacement des caractères interdits
+    if test "$all_spaces" = true; then
+        baseName=$(printf '%s' "$baseName" | tr '><"|?*\\ :' '_________')
+    else
+        baseName=$(printf '%s' "$baseName" | tr '><"|?*\\:'  '________')
+    fi
+
+    printf '%s\n' "$baseName"
+}
+
 ### Liste des fichiers exclus
-Exclus=( CON PRN aux NUL COM{1..9} LPT{1..9} )
+Exclus=( CON PRN aux NUL COM{1..9} LPT{1..9} CLOCK$ )
 declare -i LongPath=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 echo "liste des erreur ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > /tmp/error.log
 echo "-------------------" > /tmp/modifs
 
-for nomOriginal in "${execDir:=$PWD}/"**/*; do
-    # permet de supprimer les espaces avant l' extension de fichier :
-    if test -f "$nomOriginal"; then
+for nomOriginal in "${execDir:=$PWD}"/**/*; do
+    #echo;
+    #echo "nomOriginal='$nomOriginal'"
+    if test -L "$nomOriginal"; then
+        NbFileNOTModified+=1
+        echo "$NbFileNOTModified ce fichier est un lien : impossible de renommer '$nomOriginal'" >> /tmp/error.log
+        echo "le fichier '$nomOriginal' est un lien : non traité"
+        nomModif="$nomOriginal"
+        continue
+    elif test -f "$nomOriginal"; then
         NbFileScanned+=1
-        ext="${nomOriginal##*.}" # get extension without filename
+        ext=${nomOriginal##*.} # get extension without filename
         if test "$nomOriginal" != "$ext"; then
             baseName="${nomOriginal%.*}" # get filename without extension
-            baseName="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces
-            baseName="$baseName.$ext"
+            baseName=$(clean_complete_name "$baseName")
+            ext=$(clean_complete_name "$ext")
+            nomModif="$baseName.$ext"
         else
-            baseName="$nomOriginal"
+            nomModif="$nomOriginal"
         fi
     else
         NbRepScanned+=1
-        baseName="$nomOriginal"
+        nomModif=$(clean_complete_name "$nomOriginal")
     fi
 
-    nomModif="$(echo $baseName | awk '{gsub(/\s+\/\s+/, "/"); gsub(/\/\s+/, "/"); gsub(/\s+\//, "/"); gsub(/ +/, " "); print}')" # traitement des espaces en debut et fin du nom et les espaces consécutifs au milieu du nom sont ramenés a un seul espace
-    #echo " nomModif apres traitement des espaces : '$nomModif'"
-    # remplacement d'un maxima de caractères interdits par windows :  ><\:"|?* par " _ " + les espaces ( uniques et restant ) dans les noms .
-    if test "$all_spaces" = true; then
-        nomModif="$(echo "$nomModif" | tr '><"|?*\\ :'  '________%')" # version all spaces .
-    else
-        nomModif="$(echo "$nomModif" | tr '><"|?*\\:'   '_______%')" # echappement de "\" par le meme signe donc 2 \\ pour qu un soit remplacé
-    fi
-    #echo " nomModif apres traitement des caracteres spéciaux : '$nomModif'"
+    #echo "nomModif='$nomModif'"
+    nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$') # Récupére le dernier argument
+    #echo "nomArgModif='$nomArgModif'"
+    if [[ "${Exclus[*]}" ==  *" $nomArgModif "*  ]]; then nomModif+="_"; fi # Vérifions si le nom n'est pas interdit.
 
-    nomArgModif="$(echo "$nomModif" | grep -o '[^/]*$' )" # Récupére le dernier argument
-    if [[ "${Exclus[*]}" ==  *" $nomArgModif "*  ]]; then nomModif+=_ ; fi # Vérifions si le nom n'est pas interdit.
-
-    if (( "${#nomArgModif}" >= 248 || "${#nomModif}" >= 32384 )) ; then # Vérifions si la longueur n'est pas excessive
+    # le nom du chemin ne doit pas dépasser 256 en standard , et chemin étendu 32767 max , commence par "\\?\" .
+    if (( "${#nomArgModif}" >= 256 || "${#nomModif}" >= 32767 )) ; then # Vérifions si la longueur n'est pas excessive
         LongPath+=1
         echo "chemin de fichier ou de dossier trop long ! $LongPath : $nomModif" >> /tmp/error.log
     fi
 
     if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
-        if test -d "$nomOriginal" ; then # si c' est un dossier
-            if test -e "$nomModif" ; then # on verifie si il existe un dossier du meme nom avant de renommer
+        if test -d "$nomOriginal"; then # si c' est un dossier
+            if test -e "$nomModif"; then # on verifie si il existe un dossier du meme nom avant de renommer et si il est modifiable
                 NbRepNOTModified+=1
-                echo "$NbRepNOTModified un dossier du meme nom existe deja : $nomModif impossible de renommer $nomOriginal" >> /tmp/error.log
+                echo "$NbRepNOTModified un dossier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> /tmp/error.log
+            elif test ! -w "$nomOriginal"; then
+                NbRepNOTModified+=1
+                echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> /tmp/error.log
             else # si pas de dossier du meme nom , on renomme
                 if test "$modif_activ" = true; then
                     mkdir -p "$nomModif"
-                    echo "on va renommer le répertoire avec la commande suivante : mkdir $nomOriginal => $nomModif"
+                    echo "on renomme le dossier : mkdir '$nomOriginal' ==> '$nomModif'"
                     NbRepModified+=1
-                    echo "$NbRepModified CREER_REP : mkdir $nomModif" >> /tmp/modifs
+                    echo "$NbRepModified CREER_REP : mkdir '$nomModif'" >> /tmp/modifs
                 fi
             fi
         elif test -f "$nomOriginal" ; then # si c est un fichier
-            if test -e "$nomModif" ; then # on verifie si il existe un fichier du meme nom avant de renommer
+            if test -e "$nomModif"; then # on verifie si il existe un fichier du meme nom avant de renommer et s ' il est modifiable
                 NbFileNOTModified+=1
-                echo "$NbFileNOTModified un fichier du meme nom existe deja : $nomModif impossible de renommer $nomOriginal" >> /tmp/error.log
+                echo "$NbFileNOTModified un fichier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> /tmp/error.log
+            elif test ! -w "$nomOriginal"; then
+                NbFileNOTModified+=1
+                echo "$NbFileNOTModified : permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> /tmp/error.log
             else # si pas de fichier du meme nom , on renomme
                 pathOriginal=${nomOriginal%/*} # chemin du repertoire original
                 pathModif=${nomModif%/*} # chemin apres modif
@@ -85,7 +113,7 @@ for nomOriginal in "${execDir:=$PWD}/"**/*; do
                 if test "$modif_activ" = true; then
                     mv "$nomOriginal" "$nomModif"
                     NbFileModified+=1
-                    echo "$NbFileModified RENOM : mv $nomOriginal en : $nomModif" >> /tmp/modifs
+                    echo "$NbFileModified RENOM : mv '$nomOriginal' en : '$nomModif'" >> /tmp/modifs
                 fi
             fi
         fi
