@@ -6,7 +6,7 @@
 # $nomModif = nom complet rep ou fichier modifié
 # $pathModif = chemin du repertoire modifié
 # $nomArgModif = nom dernier argument modifié
-# baseName = chemin du fichier sans .ext
+# FPNWE = chemin du fichier complet sans .ext
 # $ext = extension du fichier le cas échéant sinon , renvoie le chemin complet du fichier.
 
 # variables a ajuster :
@@ -16,13 +16,11 @@ execDir="" # Pour appliquer dans un dossier specifique , mettre le chemin ABSOLU
 
 #### FIN ####
 
-shopt -s globstar
+shopt -s globstar nullglob
 
 clean_complete_name() {
-    local baseName="$1"
-
     # Nettoyage des espaces (début, fin, autour des /, multiples)
-    baseName=$(printf '%s' "$baseName" | sed -E '
+    local name=$(printf '%s' "$1" | sed -E '
     s/^[[:space:]]+//;
     s/[[:space:]]+$//;
     s/[[:space:]]*\/[[:space:]]*/\//g;
@@ -30,16 +28,17 @@ clean_complete_name() {
     ')
     # Remplacement des caractères interdits
     if test "$all_spaces" = true; then
-        baseName=$(printf '%s' "$baseName" | tr '><"|?*\\ :' '_________')
+        name=$(printf '%s' "$name" | tr '><"|?*\\ :' '_________')
     else
-        baseName=$(printf '%s' "$baseName" | tr '><"|?*\\:'  '________')
+        name=$(printf '%s' "$name" | tr '><"|?*\\:'  '________')
     fi
 
-    printf '%s\n' "$baseName"
+    printf '%s\n' "$name"
 }
 
 ### Liste des fichiers exclus
-Exclus=( CON PRN aux NUL COM{1..9} LPT{1..9} CLOCK$ )
+Exclus=( CON PRN AUX NUL NULL COM{0..9} LPT{0..9} COM¹ COM² COM³ LPT¹ LPT² LPT³ CLOCK$ )
+
 declare -i LongPath=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 echo "liste des erreur ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > /tmp/error.log
 echo "-------------------" > /tmp/modifs
@@ -47,9 +46,8 @@ echo "-------------------" > /tmp/modifs
 for nomOriginal in "${execDir:=$PWD}"/**/*; do
     #echo;
     #echo "nomOriginal='$nomOriginal'"
+
     if test -L "$nomOriginal"; then
-        NbFileNOTModified+=1
-        echo "$NbFileNOTModified ce fichier est un lien : impossible de renommer '$nomOriginal'" >> /tmp/error.log
         echo "le fichier '$nomOriginal' est un lien : non traité"
         nomModif="$nomOriginal"
         continue
@@ -57,12 +55,16 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
         NbFileScanned+=1
         ext=${nomOriginal##*.} # get extension without filename
         if test "$nomOriginal" != "$ext"; then
-            baseName="${nomOriginal%.*}" # get filename without extension
-            baseName=$(clean_complete_name "$baseName")
+            FPNWE="${nomOriginal%.*}" # get filename without extension
+            FPNWE=$(clean_complete_name "$FPNWE")
+
+            fileNameWE=${FPNWE##*/} # get only filename without path
+            if [[ "${Exclus[*]}" ==  *" $fileNameWE "*  ]]; then FPNWE+="_"; fi
+
             ext=$(clean_complete_name "$ext")
-            nomModif="$baseName.$ext"
+            nomModif="$FPNWE.$ext"
         else
-            nomModif="$nomOriginal"
+            nomModif=$(clean_complete_name "$nomOriginal")
         fi
     else
         NbRepScanned+=1
