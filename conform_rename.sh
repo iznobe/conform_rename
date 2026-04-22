@@ -85,16 +85,17 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
         fi
 
         if test -d "$nomOriginal"; then # si c' est un dossier
-            if test -e "$nomModif"; then # on verifie si il existe un dossier du meme nom avant de renommer et si il est modifiable
+            if test -e "$nomModif"; then # on verifie si il existe un dossier du meme nom avant de renommer
                 ((NbRepNOTModified++))
                 echo "$NbRepNOTModified un dossier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-            elif test ! -w "$nomOriginal"; then
+            elif test ! -w "$(realpath "${nomOriginal}"/..)"; then # on verifie si le dossier parent est modifiable
                 ((NbRepNOTModified++))
+                echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
                 echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
             else # si pas de dossier du meme nom , on renomme
-                if test "$modif_activ" = true; then
-                    mkdir -p "$nomModif"
-                    echo "on renomme le dossier : mkdir '$nomOriginal' ==> '$nomModif'"
+                echo "on renomme le dossier : mkdir '$nomOriginal' ==> '$nomModif'"
+                if test "$modif_activ" = true; then                    
+                    mkdir -p "$nomModif"                    
                     ((NbRepModified++))
                     echo "$NbRepModified CREER_REP : mkdir '$nomModif'" >> "$log_modifs"
                 fi
@@ -103,8 +104,9 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
             if test -e "$nomModif"; then # on verifie si il existe un fichier du meme nom avant de renommer et s ' il est modifiable
                 ((NbFileNOTModified++))
                 echo "$NbFileNOTModified un fichier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-            elif test ! -w "$nomOriginal"; then
+            elif test ! -w "$(dirname "${nomOriginal}")"; then # on verifie si le dossier parent est modifiable
                 ((NbFileNOTModified++))
+                echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
                 echo "$NbFileNOTModified : permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
             else # si pas de fichier du meme nom , on renomme
                 pathOriginal=${nomOriginal%/*} # chemin du repertoire original
