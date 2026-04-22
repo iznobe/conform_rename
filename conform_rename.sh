@@ -12,7 +12,6 @@
 
 # --- Configuration ---
 modif_activ=false  # true pour appliquer les modifications
-all_spaces=false   # true pour remplacer tous les espaces
 execDir=""         # Chemin ABSOLU du dossier cible (vide = PWD)
 #### FIN ####
 
@@ -37,13 +36,8 @@ clean_complete_name() { # Nettoie un nom de fichier/dossier
     s/[[:space:]]+$//;
     s/[[:space:]]*\/[[:space:]]*/\//g;
     s/[[:space:]]+/ /g
-    ')
-    # Remplacement des caractères interdits
-    if test "$all_spaces" = true; then
-        name=$(printf '%s' "$name" | tr ''\''><"|?*\\ :' '__________')
-    else
-        name=$(printf '%s' "$name" | tr ''\''><"|?*\\:'  '_________')
-    fi
+    s/[[:space:]]*\.[[:space:]]*([^.]+)$/.\1/   # Suppression des espaces juste avant et / ou apres le dernier point
+    '| tr ''\''><"|?*\\:'  '_________')
 
     printf '%s\n' "$name"
 }
@@ -79,62 +73,64 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
         
         # le nom du chemin ne doit pas dépasser 256 en standard , et chemin étendu 32767 max , prefixe windows = "\\?\" .
         #if (( "${#nomArgModif}" >= 256 || "${#nomModif}" >= 32767 )) ; then # Vérifions si la longueur n'est pas excessive
-        if (( "${#nomModif}" >= 256 )) ; then # Vérifions si la longueur n'est pas excessive
-            ((LongPath++))
-            echo "Le nom de chemin de fichier est trop long ! impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-        fi
+            if (( "${#nomModif}" >= 256 )) ; then # Vérifions si la longueur n'est pas excessive
+                ((LongPath++))
+                echo "Le nom de chemin de fichier est trop long ! impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+            fi
 
-        if test -d "$nomOriginal"; then # si c' est un dossier
-            if test -e "$nomModif"; then # on verifie si il existe un dossier du meme nom avant de renommer
-                ((NbRepNOTModified++))
-                echo "$NbRepNOTModified un dossier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-            elif test ! -w "$(realpath "${nomOriginal}"/..)"; then # on verifie si le dossier parent est modifiable
-                ((NbRepNOTModified++))
-                echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
-                echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-            else # si pas de dossier du meme nom , on renomme
-                echo "on renomme le dossier : mkdir '$nomOriginal' ==> '$nomModif'"
-                if test "$modif_activ" = true; then                    
-                    mkdir -p "$nomModif"                    
-                    ((NbRepModified++))
-                    echo "$NbRepModified CREER_REP : mkdir '$nomModif'" >> "$log_modifs"
+            if test -d "$nomOriginal"; then # si c' est un dossier
+                if test -e "$nomModif"; then # on verifie si il existe un dossier du meme nom avant de renommer
+                    ((NbRepNOTModified++))
+                    echo "$NbRepNOTModified un dossier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+                elif test ! -w "$(realpath "${nomOriginal}"/..)"; then # on verifie si le dossier parent est modifiable
+                    ((NbRepNOTModified++))
+                    echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
+                    echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+                else # si pas de dossier du meme nom , on renomme
+                    echo "dossier renommé : mkdir '$nomOriginal' ==> '$nomModif'"
+                    if test "$modif_activ" = true; then
+                        mkdir -p "$nomModif"
+                        ((NbRepModified++))
+                        echo "$NbRepModified CREER_REP : mkdir '$nomModif'" >> "$log_modifs"
+                    fi
+                fi
+            elif test -f "$nomOriginal" ; then # si c est un fichier
+                if test -e "$nomModif"; then # on verifie si il existe un fichier du meme nom avant de renommer et s ' il est modifiable
+                    ((NbFileNOTModified++))
+                    echo "$NbFileNOTModified un fichier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+                elif test ! -w "$(dirname "${nomOriginal}")"; then # on verifie si le dossier parent est modifiable
+                    ((NbFileNOTModified++))
+                    echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
+                    echo "$NbFileNOTModified : permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+                else # si pas de fichier du meme nom , on renomme
+                    pathOriginal=${nomOriginal%/*} # chemin du repertoire original
+                    pathModif=${nomModif%/*} # chemin apres modif
+                    if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
+                        nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
+                    fi
+                    echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
+                    if test "$modif_activ" = true; then
+                        mv "$nomOriginal" "$nomModif"
+                        NbFileModified+=1
+                        echo "$NbFileModified RENOM : mv '$nomOriginal' en : '$nomModif'" >> "$log_modifs"
+                    fi
                 fi
             fi
-        elif test -f "$nomOriginal" ; then # si c est un fichier
-            if test -e "$nomModif"; then # on verifie si il existe un fichier du meme nom avant de renommer et s ' il est modifiable
-                ((NbFileNOTModified++))
-                echo "$NbFileNOTModified un fichier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-            elif test ! -w "$(dirname "${nomOriginal}")"; then # on verifie si le dossier parent est modifiable
-                ((NbFileNOTModified++))
-                echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
-                echo "$NbFileNOTModified : permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-            else # si pas de fichier du meme nom , on renomme
-                pathOriginal=${nomOriginal%/*} # chemin du repertoire original
-                pathModif=${nomModif%/*} # chemin apres modif
-                if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
-                    nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
-                fi
-                echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
-                if test "$modif_activ" = true; then
-                    mv "$nomOriginal" "$nomModif"
-                    NbFileModified+=1
-                    echo "$NbFileModified RENOM : mv '$nomOriginal' en : '$nomModif'" >> "$log_modifs"
-                fi
-            fi
         fi
-    fi
-done
+    done
 
-# --- Affichage récapitulatif ---
-echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes."
-(( NbNOTScanned )) && echo "$NbNOTScanned non traités."
-echo;
-(( NbFileModified || NbRepModified )) && echo "liste des dossiers et fichiers modifiés dans '/tmp/modifs'"
-(( NbRepModified )) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete"
-echo;
-if (( NbFileNOTModified || NbRepNOTModified || LongPath)); then
-    echo "$NbFileNOTModified fichiers , $NbRepNOTModified répertoires n ' ayant pas pu etre modifiés"
-    echo "vous avez $LongPath répertoires de taille trop importante."
-    echo "liste des erreurs : cat '$log_error'"
+    # --- Affichage récapitulatif ---
     echo;
-fi
+    echo "récapitulatif :"
+    echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes."
+    (( NbNOTScanned )) && echo "$NbNOTScanned non traités."
+    echo;
+    (( NbFileModified || NbRepModified )) && echo "liste des dossiers et fichiers modifiés dans '/tmp/modifs'"
+    (( NbRepModified )) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete"
+    echo;
+    if (( NbFileNOTModified || NbRepNOTModified || LongPath)); then
+        echo "$NbFileNOTModified fichiers , $NbRepNOTModified répertoires n ' ayant pas pu etre modifiés"
+        echo "vous avez $LongPath répertoires de taille trop importante."
+        echo "liste des erreurs : cat '$log_error'"
+        echo;
+    fi
