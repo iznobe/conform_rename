@@ -40,9 +40,9 @@ clean_complete_name() { # Nettoie un nom de fichier/dossier
     ')
     # Remplacement des caractères interdits
     if test "$all_spaces" = true; then
-        name=$(printf '%s' "$name" | tr '><"|?*\\ :' '_________')
+        name=$(printf '%s' "$name" | tr ''\''><"|?*\\ :' '_________')
     else
-        name=$(printf '%s' "$name" | tr '><"|?*\\:'  '________')
+        name=$(printf '%s' "$name" | tr ''\''><"|?*\\:'  '________')
     fi
 
     printf '%s\n' "$name"
