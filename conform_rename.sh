@@ -43,81 +43,108 @@ clean_complete_name() { # Nettoie un nom de fichier/dossier
 }
 
 for nomOriginal in "${execDir:=$PWD}"/**/*; do
-    if test -L "$nomOriginal"; then
-        ((NbNOTScanned++))
-        continue
-    elif test -f "$nomOriginal"; then
-        ((NbFileScanned++))
-        ext=${nomOriginal##*.} # get extension without filename
-        if test "$nomOriginal" != "$ext"; then # si le fichier comporte une extension
-            FPNWE="${nomOriginal%.*}" # get filename without extension
-            FPNWE=$(clean_complete_name "$FPNWE")
+  if test -L "$nomOriginal"; then
+      ((NbNOTScanned++))
+      continue
+  elif test -f "$nomOriginal"; then
+      ((NbFileScanned++))
+      ext=${nomOriginal##*.} # get extension without filename
+      if test "$nomOriginal" != "$ext"; then # si le fichier comporte une extension
+          FPNWE="${nomOriginal%.*}" # get filename without extension
+          FPNWE=$(clean_complete_name "$FPNWE")
 
-            fileNameWE=${FPNWE##*/} # get only filename
-            if [[ "${Exclus[*]}" ==  *" $fileNameWE "*  ]]; then FPNWE+="_"; fi
+          fileNameWE=${FPNWE##*/} # get only filename
+          if [[ "${Exclus[*]}" ==  *" $fileNameWE "*  ]]; then FPNWE+="_"; fi
 
-            ext=$(clean_complete_name "$ext")
-            nomModif="$FPNWE.$ext"            
-        else
-            nomModif=$(clean_complete_name "$nomOriginal")
-            nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$') # Récupére le dernier argument
-            if [[ "${Exclus[*]}" ==  *" $nomArgModif "*  ]]; then nomModif+="_"; fi # Vérifions si le nom n'est pas interdit.
-        fi
-    else
-        ((NbRepScanned++))
-        nomModif=$(clean_complete_name "$nomOriginal")
-    fi
+          ext=$(clean_complete_name "$ext")
+          nomModif="$FPNWE.$ext"            
+      else
+          nomModif=$(clean_complete_name "$nomOriginal")
+          nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$') # Récupére le dernier argument
+          if [[ "${Exclus[*]}" ==  *" $nomArgModif "*  ]]; then nomModif+="_"; fi # Vérifions si le nom n'est pas interdit.
+      fi
+  else
+      ((NbRepScanned++))
+      nomModif=$(clean_complete_name "$nomOriginal")
+  fi
 
-    if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer        
+  if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer        
         nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$') # Récupére le dernier argument
         
         # le nom du chemin ne doit pas dépasser 256 en standard , et chemin étendu 32767 max , prefixe windows = "\\?\" .
         #if (( "${#nomArgModif}" >= 256 || "${#nomModif}" >= 32767 )) ; then # Vérifions si la longueur n'est pas excessive
-            if (( "${#nomModif}" >= 256 )) ; then # Vérifions si la longueur n'est pas excessive
-                ((LongPath++))
-                echo "Le nom de chemin de fichier est trop long ! impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-            fi
+        if (( "${#nomModif}" >= 256 )) ; then # Vérifions si la longueur n'est pas excessive
+            ((LongPath++))
+            echo "Le nom de chemin de fichier est trop long ! impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+        fi
 
-            if test -d "$nomOriginal"; then # si c' est un dossier
-                if test -e "$nomModif"; then # on verifie si il existe un dossier du meme nom avant de renommer
-                    ((NbRepNOTModified++))
-                    echo "$NbRepNOTModified un dossier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-                elif test ! -w "$(realpath "${nomOriginal}"/..)"; then # on verifie si le dossier parent est modifiable
-                    ((NbRepNOTModified++))
-                    echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
-                    echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-                else # si pas de dossier du meme nom , on renomme
-                    echo "dossier renommé : mkdir '$nomOriginal' ==> '$nomModif'"
-                    if test "$modif_activ" = true; then
-                        mkdir -p "$nomModif"
-                        ((NbRepModified++))
-                        echo "$NbRepModified CREER_REP : mkdir '$nomModif'" >> "$log_modifs"
-                    fi
+        if test -d "$nomOriginal"; then # si c' est un dossier
+            if test ! -w "$(realpath "${nomOriginal}"/..)"; then # on verifie si le dossier parent est modifiable
+                ((NbRepNOTModified++))
+                echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
+                echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+            else # si pas de dossier du meme nom , on renomme
+              # eviter les doublons et renommer correctement quand meme :
+              suffix=0              
+              while test -e "$nomModif"; do # Tant que le dossier cible existe déjà
+                nomModif="${nomModif}_${suffix}"                  
+                ((suffix++))
+              done
+
+              echo "dossier renommé : mkdir '$nomOriginal' ==> '$nomModif'"
+                if test "$modif_activ" = true; then
+                    mkdir -p "$nomModif"
+                    ((NbRepModified++))
+                    echo "$NbRepModified CREER_REP : mkdir '$nomModif'" >> "$log_modifs"
                 fi
-            elif test -f "$nomOriginal" ; then # si c est un fichier
-                if test -e "$nomModif"; then # on verifie si il existe un fichier du meme nom avant de renommer et s ' il est modifiable
-                    ((NbFileNOTModified++))
-                    echo "$NbFileNOTModified un fichier du meme nom existe deja : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-                elif test ! -w "$(dirname "${nomOriginal}")"; then # on verifie si le dossier parent est modifiable
-                    ((NbFileNOTModified++))
-                    echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
-                    echo "$NbFileNOTModified : permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-                else # si pas de fichier du meme nom , on renomme
-                    pathOriginal=${nomOriginal%/*} # chemin du repertoire original
-                    pathModif=${nomModif%/*} # chemin apres modif
-                    if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
-                        nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
+            fi
+        elif test -f "$nomOriginal" ; then # si c est un fichier
+            if test ! -w "$(dirname "${nomOriginal}")"; then # on verifie si le dossier parent est modifiable
+                ((NbFileNOTModified++))
+                echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
+                echo "$NbFileNOTModified : permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+            else
+                pathOriginal=${nomOriginal%/*} # chemin du repertoire original
+                pathModif=${nomModif%/*} # chemin apres modif
+                if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
+                    nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
+                fi
+                
+                # eviter les doublons et renommer correctement quand meme :
+                directory="$(dirname "$nomModif")"
+                name="${nomModif##*/}"  # enlève le chemin
+                base="$name"
+                declare -i suffix=0
+                ext=""
+                while test -e "$nomModif"; do # Tant que le fichier cible existe déjà
+                  if [[ "$name" == .* ]]; then
+                    base="${name:1}"   # enlève le point initial
+                    if [[ "$base" == *.* ]]; then
+                      ext=".${base##*.}"
+                      base="${base%.*}"
                     fi
-                    echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
-                    if test "$modif_activ" = true; then
-                        mv "$nomOriginal" "$nomModif"
-                        NbFileModified+=1
-                        echo "$NbFileModified RENOM : mv '$nomOriginal' en : '$nomModif'" >> "$log_modifs"
+                  else
+                    if [[ "$name" == *.* ]]; then
+                      ext=".${name##*.}"
+                      base="${name%.*}"
                     fi
+                  fi
+                  # Permet de renommer le tout ( les 4 possibilités ) , car $ext et $base sont definies au départ
+                  nomModif="${directory}/${base}_${suffix}${ext}"
+                  
+                  ((suffix++))
+                done
+                
+                echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
+                if test "$modif_activ" = true; then
+                    mv "$nomOriginal" "$nomModif"
+                    NbFileModified+=1
+                    echo "$NbFileModified RENOM : mv '$nomOriginal' en : '$nomModif'" >> "$log_modifs"
                 fi
             fi
         fi
-    done
+    fi
+done
 
     # --- Affichage récapitulatif ---
     echo;
