@@ -15,7 +15,7 @@ execDir=""         # Chemin ABSOLU du dossier cible (vide = PWD)
 #### FIN ####
 
 # --- Variables globales ---
-declare -i LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
+declare -i count=0 LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 declare log_error="/tmp/error.log" log_modifs="/tmp/modifs"
 ### Liste des fichiers exclus
 Exclus=( CON PRN AUX NUL NULL COM{0..9} LPT{0..9} COM¹ COM² COM³ LPT¹ LPT² LPT³ CLOCK$ )
@@ -26,7 +26,7 @@ echo "-------------------" > "$log_modifs"
 
 check_exclu() {
 	local name="$1"
-	if [[ " ${Exclus[*]} " == *" $(echo "${name##*/}" | tr '[:lower:]' '[:upper:]') "* ]]; then name+="_"; fi
+	if [[ " ${Exclus[*]} " == *" ${name^^{name##*/}} "* ]]; then name+="_"; fi
 	printf '%s\n' "$name"
 }
 
@@ -37,6 +37,7 @@ clean_name() { # Nettoie un nom de fichier/dossier
     s/[[:space:]]+/ /g;
     s/[[:space:]]*\.[[:space:]]*([^.]+)$/.\1/;
     s/[^[:print:]]|['\''><"|?*\\:]/_/g
+    #s/[^[:print:]]|[\/'\''><"|?*\\:]/_/g
     '
 }
 
@@ -65,6 +66,7 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 	fi
 
 	if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
+		((count++))
 		# le nom du chemin ne doit pas dépasser 256 en standard , et chemin étendu 32767 max , prefixe windows = "\\?\"
 		if (( "${#nomModif}" >= 256 )) ; then # Vérifions si la longueur n'est pas excessive
 			((LongPath++))
@@ -77,6 +79,7 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 				echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
 				echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
 			else # eviter les doublons et renommer correctement quand meme :
+
 				suffix=0
 				while test -e "$nomModif"; do # Tant que le dossier cible existe déjà
 					nomModif="${nomModif}_${suffix}"
@@ -139,7 +142,7 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 done
 
 echo;
-echo "récapitulatif :"
+echo "récapitulatif : modif count = $count"
 echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes."
 (( NbNOTScanned )) && echo "$NbNOTScanned non traités."
 echo;
