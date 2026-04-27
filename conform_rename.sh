@@ -19,14 +19,13 @@ execDir=""         # Chemin ABSOLU du dossier cible (vide = PWD)
 declare -i LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 declare log_error="/tmp/error.log" log_modifs="/tmp/modifs"
 ### Liste des fichiers exclus
-Exclus=( CON con PRN prn AUX aux NUL{L} nul{l} COM{0..9} com{0..9} LPT{0..9} lpt{0..9} COM¹ COM² COM³ com¹ com² com³ LPT¹ LPT² LPT³ lpt¹ lpt² lpt³ CLOCK$ clock$ )
-
+#Exclus=( CON con PRN prn AUX aux NUL?L COM{0..9} com{0..9} LPT{0..9} lpt{0..9} COM¹ COM² COM³ com¹ com² com³ LPT¹ LPT² LPT³ lpt¹ lpt² lpt³ CLOCK$ clock$ )
+Exclus=( CON PRN AUX NUL?L COM{0..9} LPT{0..9} COM¹ COM² COM³ LPT¹ LPT² LPT³ CLOCK$ )
 # --- Initialisation ---
 shopt -s globstar nullglob
 echo "liste des erreurs ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > "$log_error"
 echo "-------------------" > "$log_modifs"
 
-# --- Fonctions ---
 clean_complete_name() { # Nettoie un nom de fichier/dossier
 	local name="$1"
 
@@ -38,6 +37,10 @@ clean_complete_name() { # Nettoie un nom de fichier/dossier
 	s/[[:space:]]+/ /g
 	s/[[:space:]]*\.[[:space:]]*([^.]+)$/.\1/   # Suppression des espaces juste avant et / ou apres le dernier point
 	'| tr ''\''><"|?*\\:'  '_________')
+
+  if [[ " ${Exclus[*]} " == *" $(echo "${name##*/}" | tr '[:lower:]' '[:upper:]') "* ]]
+    then name+="_";
+  fi
 
 	printf '%s\n' "$name"
 }
@@ -52,21 +55,15 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 		if test "$nomOriginal" != "$ext"; then # si le fichier comporte une extension
 			FPNWE="${nomOriginal%.*}" # get filename without extension
 			FPNWE=$(clean_complete_name "$FPNWE")
-
-			if [[ "${Exclus[*]}" ==  *" ${FPNWE##*/} "*  ]]; then FPNWE+="_"; fi
-
-			ext=$(clean_complete_name "$ext")
+      ext=$(clean_complete_name "$ext")
 			nomModif="$FPNWE.$ext"
 		else
 			nomModif=$(clean_complete_name "$nomOriginal")
-			if [[ "${Exclus[*]}" ==  *" ${nomModif##*/} "*  ]]; then nomModif+="_"; fi # Vérifions si le nom n'est pas interdit.
 		fi
 	else
 		((NbRepScanned++))
 		nomModif=$(clean_complete_name "$nomOriginal")
-		if [[ "${Exclus[*]}" ==  *" ${nomModif##*/} "*  ]]; then nomModif+="_"; fi # Vérifions si le nom n'est pas interdit.
 	fi
-
 
 	if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
 		# le nom du chemin ne doit pas dépasser 256 en standard , et chemin étendu 32767 max , prefixe windows = "\\?\"
@@ -80,8 +77,7 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 				((NbRepNOTModified++))
 				echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
 				echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
-			else # si pas de dossier du meme nom , on renomme
-				# eviter les doublons et renommer correctement quand meme :
+			else # eviter les doublons et renommer correctement quand meme :
 				suffix=0
 				while test -e "$nomModif"; do # Tant que le dossier cible existe déjà
 					nomModif="${nomModif}_${suffix}"
@@ -90,7 +86,7 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 
 				echo "dossier renommé : mkdir '$nomOriginal' ==> '$nomModif'"
 				if test "$modif_activ" = true; then
-					mkdir -p "$nomModif"
+					mkdir -pv "$nomModif"
 					((NbRepModified++))
 					echo "$NbRepModified CREER_REP : mkdir '$nomModif'" >> "$log_modifs"
 				fi
@@ -108,33 +104,33 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 				fi
 
 				# eviter les doublons et renommer correctement quand meme :
-				directory=${nomModif%/*}
-				cleanFileName=${nomModif##*/}
-				base="$cleanFileName"
-				declare -i suffix=0
-				ext=""
-				while test -e "$nomModif"; do # Tant que le fichier cible existe déjà
-					if [[ "$cleanFileName" == .* ]]; then
-						base="${cleanFileName:1}"   # enlève le point initial
-						if [[ "$base" == *.* ]]; then
-							ext=".${base##*.}"
-							base="${base%.*}"
-						fi
-					else
-						if [[ "$cleanFileName" == *.* ]]; then
-							ext=".${cleanFileName##*.}"
-							base="${cleanFileName%.*}"
-						fi
-					fi
-					# Permet de renommer le tout ( les 4 possibilités ) , car $ext et $base sont definies au départ
-					nomModif="${directory}/${base}_${suffix}${ext}"
+				directory="${nomModif%/*}"
+        cleanFileName="${nomModif##*/}"
+        base="$cleanFileName"
+        ext=""
+        suffix=0
 
-					((suffix++))
-				done
+        if [[ "$cleanFileName" == .* ]]; then
+            base="${cleanFileName:1}" # Fichier caché (ex: .bash_profile) , Enlève le point initial
+            if [[ "$base" == *.* ]]; then
+                ext=".${base##*.}"
+                base="${base%.*}"
+            fi
+        else
+            if [[ "$cleanFileName" == *.* ]]; then # Fichier normal (ex: fichier.txt)
+                ext=".${cleanFileName##*.}"
+                base="${cleanFileName%.*}"
+            fi
+        fi
+
+        while [[ -e "$nomModif" ]]; do
+            nomModif="${directory}/${base}_${suffix}${ext}"
+            ((suffix++))
+        done
 
 				echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
 				if test "$modif_activ" = true; then
-					mv "$nomOriginal" "$nomModif"
+					mv  "$nomOriginal" "$nomModif"
 					NbFileModified+=1
 					echo "$NbFileModified RENOM : mv '$nomOriginal' en : '$nomModif'" >> "$log_modifs"
 				fi
@@ -143,13 +139,12 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 	fi
 done
 
-# --- Affichage récapitulatif ---
 echo;
 echo "récapitulatif :"
 echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes."
 (( NbNOTScanned )) && echo "$NbNOTScanned non traités."
 echo;
-(( NbFileModified || NbRepModified )) && echo "liste des dossiers et fichiers modifiés dans '/tmp/modifs'"
+(( NbFileModified || NbRepModified )) && echo "Pour voir les modifications : cat '/tmp/modifs'"
 (( NbRepModified )) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete"
 echo;
 if (( NbFileNOTModified || NbRepNOTModified || LongPath)); then
