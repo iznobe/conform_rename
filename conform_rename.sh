@@ -8,7 +8,6 @@
 # $cleanFileName = nom fichier nettoyé
 # FPNWE = chemin du fichier complet sans .ext = Full Path Name Without Extension
 # $ext = extension du fichier le cas échéant sinon , renvoie le chemin complet du fichier.
-# $fileNameWE = nom du fichier sans path , ni extension .
 
 # --- Configuration ---
 modif_activ=false  # true pour appliquer les modifications
