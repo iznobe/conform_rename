@@ -18,20 +18,15 @@ execDir=""         # Chemin ABSOLU du dossier cible (vide = PWD)
 declare -i LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 declare log_error="/tmp/error.log" log_modifs="/tmp/modifs"
 ### Liste des fichiers exclus
-#Exclus=( CON con PRN prn AUX aux NUL?L COM{0..9} com{0..9} LPT{0..9} lpt{0..9} COM¹ COM² COM³ com¹ com² com³ LPT¹ LPT² LPT³ lpt¹ lpt² lpt³ CLOCK$ clock$ )
-Exclus=( CON PRN AUX NUL?L COM{0..9} LPT{0..9} COM¹ COM² COM³ LPT¹ LPT² LPT³ CLOCK$ )
+Exclus=( CON PRN AUX NUL NULL COM{0..9} LPT{0..9} COM¹ COM² COM³ LPT¹ LPT² LPT³ CLOCK$ )
 # --- Initialisation ---
 shopt -s globstar nullglob
 echo "liste des erreurs ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > "$log_error"
 echo "-------------------" > "$log_modifs"
 
-clean_complete_name() { # Nettoie et evite les noms exclus
+check_exclu() {
 	local name="$1"
-
-	name=$(clean_name "$name")
-
 	if [[ " ${Exclus[*]} " == *" $(echo "${name##*/}" | tr '[:lower:]' '[:upper:]') "* ]]; then name+="_"; fi
-
 	printf '%s\n' "$name"
 }
 
@@ -54,16 +49,19 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 		ext=${nomOriginal##*.} # get extension without filename
 		if test "$nomOriginal" != "$ext"; then # si le fichier comporte une extension
 			FPNWE="${nomOriginal%.*}" # get filename without extension
-			FPNWE=$(clean_complete_name "$FPNWE")
+			FPNWE=$(clean_name "$FPNWE")
+			FPNWE=$(check_exclu "$FPNWE")
 
 			ext=$(clean_name "$ext")
 			nomModif="$FPNWE.$ext"
 		else # si le fichier ne comporte pas d ' extension
-			nomModif=$(clean_complete_name "$nomOriginal")
+			nomModif=$(clean_name "$nomOriginal")
+			nomModif=$(check_exclu "$nomModif")
 		fi
 	else
 		((NbRepScanned++))
-		nomModif=$(clean_complete_name "$nomOriginal")
+		nomModif=$(clean_name "$nomOriginal")
+		nomModif=$(check_exclu "$nomModif")
 	fi
 
 	if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
