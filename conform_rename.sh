@@ -25,23 +25,24 @@ shopt -s globstar nullglob
 echo "liste des erreurs ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > "$log_error"
 echo "-------------------" > "$log_modifs"
 
-clean_complete_name() { # Nettoie un nom de fichier/dossier
+clean_complete_name() { # Nettoie et evite les noms exclus
 	local name="$1"
 
-	# Nettoyage des espaces (début, fin, autour des /, multiples)
-	name=$(printf '%s' "$name" | sed -E '
-	s/^[[:space:]]+//;
-	s/[[:space:]]+$//;
-	s/[[:space:]]*\/[[:space:]]*/\//g;
-	s/[[:space:]]+/ /g
-	s/[[:space:]]*\.[[:space:]]*([^.]+)$/.\1/   # Suppression des espaces juste avant et / ou apres le dernier point
-	'| tr ''\''><"|?*\\:'  '_________')
+	name=$(clean_name "$name")
 
-  if [[ " ${Exclus[*]} " == *" $(echo "${name##*/}" | tr '[:lower:]' '[:upper:]') "* ]]
-    then name+="_";
-  fi
+	if [[ " ${Exclus[*]} " == *" $(echo "${name##*/}" | tr '[:lower:]' '[:upper:]') "* ]]; then name+="_"; fi
 
 	printf '%s\n' "$name"
+}
+
+clean_name() { # Nettoie un nom de fichier/dossier
+  printf '%s' "$1" | sed -E '
+    s/^[[:space:]]+|[[:space:]]+$//g;
+    s/[[:space:]]*\/[[:space:]]*/\//g;
+    s/[[:space:]]+/ /g;
+    s/[[:space:]]*\.[[:space:]]*([^.]+)$/.\1/;
+    s/[^[:print:]]|['\''><"|?*\\:]/_/g
+    '
 }
 
 for nomOriginal in "${execDir:=$PWD}"/**/*; do
@@ -54,9 +55,10 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 		if test "$nomOriginal" != "$ext"; then # si le fichier comporte une extension
 			FPNWE="${nomOriginal%.*}" # get filename without extension
 			FPNWE=$(clean_complete_name "$FPNWE")
-      ext=$(clean_complete_name "$ext")
+
+			ext=$(clean_name "$ext")
 			nomModif="$FPNWE.$ext"
-		else
+		else # si le fichier ne comporte pas d ' extension
 			nomModif=$(clean_complete_name "$nomOriginal")
 		fi
 	else
@@ -104,28 +106,28 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 
 				# eviter les doublons et renommer correctement quand meme :
 				directory="${nomModif%/*}"
-        cleanFileName="${nomModif##*/}"
-        base="$cleanFileName"
-        ext=""
-        suffix=0
+				cleanFileName="${nomModif##*/}"
+				base="$cleanFileName"
+				ext=""
+				suffix=0
 
-        if [[ "$cleanFileName" == .* ]]; then
-            base="${cleanFileName:1}" # Fichier caché (ex: .bash_profile) , Enlève le point initial
-            if [[ "$base" == *.* ]]; then
-                ext=".${base##*.}"
-                base="${base%.*}"
-            fi
-        else
-            if [[ "$cleanFileName" == *.* ]]; then # Fichier normal (ex: fichier.txt)
-                ext=".${cleanFileName##*.}"
-                base="${cleanFileName%.*}"
-            fi
-        fi
+				if [[ "$cleanFileName" == .* ]]; then
+					base="${cleanFileName:1}" # Fichier caché (ex: .bash_profile) , Enlève le point initial
+					if [[ "$base" == *.* ]]; then
+						ext=".${base##*.}"
+						base="${base%.*}"
+					fi
+				else
+					if [[ "$cleanFileName" == *.* ]]; then # Fichier normal (ex: fichier.txt)
+						ext=".${cleanFileName##*.}"
+						base="${cleanFileName%.*}"
+					fi
+				fi
 
-        while [[ -e "$nomModif" ]]; do
-            nomModif="${directory}/${base}_${suffix}${ext}"
-            ((suffix++))
-        done
+				while [[ -e "$nomModif" ]]; do
+					nomModif="${directory}/${base}_${suffix}${ext}"
+					((suffix++))
+				done
 
 				echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
 				if test "$modif_activ" = true; then
