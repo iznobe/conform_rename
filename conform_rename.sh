@@ -5,7 +5,7 @@
 # $pathOriginal = chemin du repertoire original
 # $nomModif = nom complet rep ou fichier modifié
 # $pathModif = chemin du repertoire modifié
-# $nomArgModif = nom dernier argument modifié
+# $cleanFileName = nom fichier nettoyé
 # FPNWE = chemin du fichier complet sans .ext = Full Path Name Without Extension
 # $ext = extension du fichier le cas échéant sinon , renvoie le chemin complet du fichier.
 # $fileNameWE = nom du fichier sans path , ni extension .
@@ -19,7 +19,7 @@ execDir=""         # Chemin ABSOLU du dossier cible (vide = PWD)
 declare -i LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 declare log_error="/tmp/error.log" log_modifs="/tmp/modifs"
 ### Liste des fichiers exclus
-Exclus=( CON PRN AUX NUL NULL COM{0..9} LPT{0..9} COM¹ COM² COM³ LPT¹ LPT² LPT³ CLOCK$ )
+Exclus=( CON con PRN prn AUX aux NUL{L} nul{l} COM{0..9} com{0..9} LPT{0..9} lpt{0..9} COM¹ COM² COM³ com¹ com² com³ LPT¹ LPT² LPT³ lpt¹ lpt² lpt³ CLOCK$ clock$ )
 
 # --- Initialisation ---
 shopt -s globstar nullglob
@@ -53,24 +53,22 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 			FPNWE="${nomOriginal%.*}" # get filename without extension
 			FPNWE=$(clean_complete_name "$FPNWE")
 
-			fileNameWE=${FPNWE##*/} # get only filename
-			if [[ "${Exclus[*]}" ==  *" $fileNameWE "*  ]]; then FPNWE+="_"; fi
+			if [[ "${Exclus[*]}" ==  *" ${FPNWE##*/} "*  ]]; then FPNWE+="_"; fi
 
 			ext=$(clean_complete_name "$ext")
 			nomModif="$FPNWE.$ext"
 		else
 			nomModif=$(clean_complete_name "$nomOriginal")
-			nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$') # Récupére le dernier argument
-			if [[ "${Exclus[*]}" ==  *" $nomArgModif "*  ]]; then nomModif+="_"; fi # Vérifions si le nom n'est pas interdit.
+			if [[ "${Exclus[*]}" ==  *" ${nomModif##*/} "*  ]]; then nomModif+="_"; fi # Vérifions si le nom n'est pas interdit.
 		fi
 	else
 		((NbRepScanned++))
 		nomModif=$(clean_complete_name "$nomOriginal")
+		if [[ "${Exclus[*]}" ==  *" ${nomModif##*/} "*  ]]; then nomModif+="_"; fi # Vérifions si le nom n'est pas interdit.
 	fi
 
-	if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
-		nomArgModif=$(echo "$nomModif" | grep -o '[^/]*$') # Récupére le dernier argument
 
+	if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
 		# le nom du chemin ne doit pas dépasser 256 en standard , et chemin étendu 32767 max , prefixe windows = "\\?\"
 		if (( "${#nomModif}" >= 256 )) ; then # Vérifions si la longueur n'est pas excessive
 			((LongPath++))
@@ -106,26 +104,26 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 				pathOriginal=${nomOriginal%/*} # chemin du repertoire original
 				pathModif=${nomModif%/*} # chemin apres modif
 				if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
-					nomModif="$pathModif"/"$nomArgModif" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
+					nomModif="$pathModif"/"${nomModif##*/}" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
 				fi
 
 				# eviter les doublons et renommer correctement quand meme :
-				directory="$(dirname "$nomModif")"
-				name="${nomModif##*/}"  # enlève le chemin
-				base="$name"
+				directory=${nomModif%/*}
+				cleanFileName=${nomModif##*/}
+				base="$cleanFileName"
 				declare -i suffix=0
 				ext=""
 				while test -e "$nomModif"; do # Tant que le fichier cible existe déjà
-					if [[ "$name" == .* ]]; then
-						base="${name:1}"   # enlève le point initial
+					if [[ "$cleanFileName" == .* ]]; then
+						base="${cleanFileName:1}"   # enlève le point initial
 						if [[ "$base" == *.* ]]; then
 							ext=".${base##*.}"
 							base="${base%.*}"
 						fi
 					else
-						if [[ "$name" == *.* ]]; then
-							ext=".${name##*.}"
-							base="${name%.*}"
+						if [[ "$cleanFileName" == *.* ]]; then
+							ext=".${cleanFileName##*.}"
+							base="${cleanFileName%.*}"
 						fi
 					fi
 					# Permet de renommer le tout ( les 4 possibilités ) , car $ext et $base sont definies au départ
