@@ -26,20 +26,63 @@ echo "-------------------" > "$log_modifs"
 
 check_exclu() {
 	local name="$1"
-	if [[ " ${Exclus[*]} " == *" ${name^^{name##*/}} "* ]]; then name+="_"; fi
+	local base="${name##*/}"
+
+	if [[ " ${Exclus[*]} " == *" ${base^^} "* ]]; then name+="_"; fi
+
 	printf '%s\n' "$name"
 }
 
 clean_name() { # Nettoie un nom de fichier/dossier
-  printf '%s' "$1" | sed -E '
-    s/^[[:space:]]+|[[:space:]]+$//g;
-    s/[[:space:]]*\/[[:space:]]*/\//g;
-    s/[[:space:]]+/ /g;
-    s/[[:space:]]*\.[[:space:]]*([^.]+)$/.\1/;
-    s/[^[:print:]]|['\''><"|?*\\:]/_/g
-    #s/[^[:print:]]|[\/'\''><"|?*\\:]/_/g
-    '
-}
+	printf '%s' "$1" | awk '
+	BEGIN {
+		IGNORECASE = 1
+
+		reserved["nul"]; reserved["prn"]; reserved["con"]; reserved["aux"]
+		for (i=0;i<=9;i++) { reserved["com" i]; reserved["lpt" i] }
+		reserved["com¹"]; reserved["com²"]; reserved["com³"]
+		reserved["lpt¹"]; reserved["lpt²"]; reserved["lpt³"]
+	}
+	{
+		# trim
+		gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+
+		# espaces autour /
+		gsub(/[[:space:]]*\/[[:space:]]*/, "/")
+
+		# espaces multiples
+		gsub(/[[:space:]]+/, " ")
+
+		# caractères interdits + contrôle
+		gsub(/['"'"'\\:\*\?\"<>\|\001-\037\177]/, "_")
+
+		# suppression points finaux
+		sub(/\.+$/, "")
+
+		# nettoyage dernier point
+		if (match($0, /[[:space:]]*\.[[:space:]]*([^.]+)$/)) {
+			ext = substr($0, RSTART, RLENGTH)
+			sub(/^[[:space:]]*\.[[:space:]]*/, ".", ext)
+			$0 = substr($0, 1, RSTART-1) ext
+		}
+
+		# uniquement des points → vide
+		if ($0 ~ /^\.*$/) $0=""
+
+			# basename sans extension
+			base = $0
+			sub(/\..*$/, "", base)
+
+			if (tolower(base) in reserved) {
+				$0 = base "_" substr($0, length(base)+1)
+			}
+
+			# vide → NONAME
+			if ($0 ~ /^[[:space:]]*$/) $0="NONAME"
+
+				print
+			}'
+		}
 
 for nomOriginal in "${execDir:=$PWD}"/**/*; do
 	if test -L "$nomOriginal"; then
@@ -49,9 +92,10 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 		((NbFileScanned++))
 		ext=${nomOriginal##*.} # get extension without filename
 		if test "$nomOriginal" != "$ext"; then # si le fichier comporte une extension
-			FPNWE="${nomOriginal%.*}" # get filename without extension
-			FPNWE=$(clean_name "$FPNWE")
-			FPNWE=$(check_exclu "$FPNWE")
+			FP=$(clean_name "$nomOriginal")
+			FP=$(check_exclu "$FP")
+
+			FPNWE=${FP%.*} # get filename without extension
 
 			ext=$(clean_name "$ext")
 			nomModif="$FPNWE.$ext"
