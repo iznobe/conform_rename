@@ -10,38 +10,31 @@
 # $ext = extension du fichier le cas échéant sinon , renvoie le chemin complet du fichier.
 
 # --- Configuration ---
+
 modif_activ=false  # true pour appliquer les modifications
 execDir=""         # Chemin ABSOLU du dossier cible (vide = PWD)
+
 #### FIN ####
 
 # --- Variables globales ---
 declare -i count=0 LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
 declare log_error="/tmp/error.log" log_modifs="/tmp/modifs"
-### Liste des fichiers exclus
-Exclus=( CON PRN AUX NUL NULL COM{0..9} LPT{0..9} COM¹ COM² COM³ LPT¹ LPT² LPT³ CLOCK$ )
+
 # --- Initialisation ---
 shopt -s globstar nullglob
 echo "liste des erreurs ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > "$log_error"
 echo "-------------------" > "$log_modifs"
 
-check_exclu() {
-	local name="$1"
-	local base="${name##*/}"
-
-	if [[ " ${Exclus[*]} " == *" ${base^^} "* ]]; then name+="_"; fi
-
-	printf '%s\n' "$name"
-}
 
 clean_name() { # Nettoie un nom de fichier/dossier
 	printf '%s' "$1" | awk '
 	BEGIN {
 		IGNORECASE = 1
 
-		reserved["nul"]; reserved["prn"]; reserved["con"]; reserved["aux"]
-		for (i=0;i<=9;i++) { reserved["com" i]; reserved["lpt" i] }
-		reserved["com¹"]; reserved["com²"]; reserved["com³"]
-		reserved["lpt¹"]; reserved["lpt²"]; reserved["lpt³"]
+		reserved["NUL"]; reserved["NULL"]; reserved["PRN"]; reserved["CON"]; reserved["AUX"]; reserved["CLOCK$"]
+		for (i=0;i<=9;i++) { reserved["COM" i]; reserved["LPT" i] }
+		reserved["COM¹"]; reserved["COM²"]; reserved["COM³"]
+		reserved["LPT¹"]; reserved["LPT²"]; reserved["LPT³"]
 	}
 	{
 		# trim
@@ -54,7 +47,7 @@ clean_name() { # Nettoie un nom de fichier/dossier
 		gsub(/[[:space:]]+/, " ")
 
 		# caractères interdits + contrôle
-		gsub(/['"'"'\\:\*\?\"<>\|\001-\037\177]/, "_")
+		gsub(/['\''"\\:\*\?\"<>\|\001-\037\177]/, "_")
 
 		# suppression points finaux
 		sub(/\.+$/, "")
@@ -69,45 +62,40 @@ clean_name() { # Nettoie un nom de fichier/dossier
 		# uniquement des points → vide
 		if ($0 ~ /^\.*$/) $0=""
 
-			# basename sans extension
-			base = $0
-			sub(/\..*$/, "", base)
+		# basename sans extension
+		base = $0
+		sub(/\..*$/, "", base)
 
-			if (tolower(base) in reserved) {
-				$0 = base "_" substr($0, length(base)+1)
-			}
-
-			# vide → NONAME
-			if ($0 ~ /^[[:space:]]*$/) $0="NONAME"
-
-				print
-			}'
+		if (toupper(base) in reserved) {
+			$0 = base "_" substr($0, length(base)+1)
 		}
 
+		# vide → NONAME
+		if ($0 ~ /^[[:space:]]*$/) $0="NONAME"
+
+			print  # <-- Ici, le print est bien dans le bloc !
+		}'
+}
+
 for nomOriginal in "${execDir:=$PWD}"/**/*; do
+
 	if test -L "$nomOriginal"; then
 		((NbNOTScanned++))
 		continue
-	elif test -f "$nomOriginal"; then
+	fi
+
+	pathOriginal="${nomOriginal%/*}" # get original pathname
+	file="${nomOriginal##*/}" # get file name or directory name
+
+	if test -f "$nomOriginal"; then
 		((NbFileScanned++))
-		ext=${nomOriginal##*.} # get extension without filename
-		if test "$nomOriginal" != "$ext"; then # si le fichier comporte une extension
-			FP=$(clean_name "$nomOriginal")
-			FP=$(check_exclu "$FP")
-
-			FPNWE=${FP%.*} # get filename without extension
-
-			ext=$(clean_name "$ext")
-			nomModif="$FPNWE.$ext"
-		else # si le fichier ne comporte pas d ' extension
-			nomModif=$(clean_name "$nomOriginal")
-			nomModif=$(check_exclu "$nomModif")
-		fi
 	else
 		((NbRepScanned++))
-		nomModif=$(clean_name "$nomOriginal")
-		nomModif=$(check_exclu "$nomModif")
 	fi
+
+	nomModif="$pathOriginal/$(clean_name "$file")"
+
+	###############################"
 
 	if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
 		((count++))
@@ -143,7 +131,6 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 				echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
 				echo "$NbFileNOTModified : permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
 			else
-				pathOriginal=${nomOriginal%/*} # chemin du repertoire original
 				pathModif=${nomModif%/*} # chemin apres modif
 				if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
 					nomModif="$pathModif"/"${nomModif##*/}" # dans ce cas on utilise l' arborescence modifiée precedemment + le nom modifié du dernier argument pour la destination
