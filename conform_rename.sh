@@ -22,16 +22,12 @@ declare log_error="/tmp/error.log" log_modifs="/tmp/modifs.log" log_pre_modifs="
 
 # --- Initialisation ---
 shopt -s globstar nullglob
-test -e "$log_error" ||
-
-if test "$modif_activ" != true; then
+if ! "$modif_activ"; then
 	echo "Récapitulatif de la simulation du $(date +"-%d-%m-%Y-%H-%M-%S")" >> "$log_pre_modifs"
 else
 	echo "Modifications du $(date +"-%d-%m-%Y-%H-%M-%S")" >> "$log_modifs"
 	echo "liste des erreurs du $(date +"-%d-%m-%Y-%H-%M-%S") ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" >> "$log_error"
 fi
-
-execDir="$1"
 
 clean_name() { # Nettoie un nom de fichier/dossier
 	printf '%s' "$1" | awk '
