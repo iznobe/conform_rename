@@ -12,7 +12,7 @@
 # --- Configuration ---
 
 modif_activ=false  # true pour appliquer les modifications
-execDir=""         # Chemin ABSOLU du dossier cible (vide = dossier de travail du terminal : $PWD
+execDir=""         # Chemin ABSOLU du dossier cible , vide = dossier de travail du terminal : $PWD
 
 #### FIN ####
 
