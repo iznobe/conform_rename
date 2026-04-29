@@ -7,24 +7,31 @@
 # $pathModif = chemin du repertoire modifié
 # $cleanFileName = nom fichier nettoyé
 # FPNWE = chemin du fichier complet sans .ext = Full Path Name Without Extension
-# $ext = extension du fichier le cas échéant sinon , renvoie le chemin complet du fichier.
+# $ext = extension du fichier le cas échéant sinon , renvoie le chemin complet du fichier si pas d' extension.
 
 # --- Configuration ---
 
 modif_activ=false  # true pour appliquer les modifications
-execDir=""         # Chemin ABSOLU du dossier cible (vide = PWD)
+execDir=""         # Chemin ABSOLU du dossier cible , vide = dossier de travail du terminal : $PWD
 
 #### FIN ####
 
 # --- Variables globales ---
 declare -i count=0 LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
-declare log_error="/tmp/error.log" log_modifs="/tmp/modifs"
+declare log_error="/tmp/error.log" log_modifs="/tmp/modifs.log" log_pre_modifs="/tmp/pre_modifs.log"
 
 # --- Initialisation ---
 shopt -s globstar nullglob
-echo "liste des erreurs ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" > "$log_error"
-echo "-------------------" > "$log_modifs"
+test -e "$log_error" ||
 
+if test "$modif_activ" != true; then
+	echo "Récapitulatif de la simulation du $(date +"-%d-%m-%Y-%H-%M-%S")" >> "$log_pre_modifs"
+else
+	echo "Modifications du $(date +"-%d-%m-%Y-%H-%M-%S")" >> "$log_modifs"
+	echo "liste des erreurs du $(date +"-%d-%m-%Y-%H-%M-%S") ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" >> "$log_error"
+fi
+
+execDir="$1"
 
 clean_name() { # Nettoie un nom de fichier/dossier
 	printf '%s' "$1" | awk '
@@ -77,8 +84,7 @@ clean_name() { # Nettoie un nom de fichier/dossier
 		}'
 }
 
-for nomOriginal in "${execDir:=$PWD}"/**/*; do
-
+while IFS= read -r -d '' nomOriginal; do
 	if test -L "$nomOriginal"; then
 		((NbNOTScanned++))
 		continue
@@ -98,7 +104,6 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 	###############################"
 
 	if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
-		((count++))
 		# le nom du chemin ne doit pas dépasser 256 en standard , et chemin étendu 32767 max , prefixe windows = "\\?\"
 		if (( "${#nomModif}" >= 256 )) ; then # Vérifions si la longueur n'est pas excessive
 			((LongPath++))
@@ -108,8 +113,7 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 		if test -d "$nomOriginal"; then # si c' est un dossier
 			if test ! -w "$(realpath "${nomOriginal}"/..)"; then # on verifie si le dossier parent est modifiable
 				((NbRepNOTModified++))
-				echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
-				echo "$NbRepNOTModified permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+				echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" | tee -a "$log_error"
 			else # eviter les doublons et renommer correctement quand meme :
 
 				suffix=0
@@ -118,18 +122,19 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 					((suffix++))
 				done
 
-				echo "dossier renommé : mkdir '$nomOriginal' ==> '$nomModif'"
 				if test "$modif_activ" = true; then
-					mkdir -pv "$nomModif"
+					mv -v "$nomOriginal" "$nomModif" | tee -a "$log_modifs"
 					((NbRepModified++))
-					echo "$NbRepModified CREER_REP : mkdir '$nomModif'" >> "$log_modifs"
+				else
+          ((count++))
+					echo "SIMUL dossier renommé : mv '$nomOriginal' ==> '$nomModif'" | tee -a "$log_pre_modifs"
 				fi
 			fi
+      
 		elif test -f "$nomOriginal" ; then # si c est un fichier
 			if test ! -w "$(dirname "${nomOriginal}")"; then # on verifie si le dossier parent est modifiable
 				((NbFileNOTModified++))
-				echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'"
-				echo "$NbFileNOTModified : permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
+				echo "permission refusée : impossible de renommer '$nomOriginal' en '$nomModif'" | tee -a "$log_error"
 			else
 				pathModif=${nomModif%/*} # chemin apres modif
 				if [[ "$pathOriginal" != "$pathModif" ]]; then # si les chemins sont differents , c' est que l' arborescence a été modifiée :
@@ -161,25 +166,26 @@ for nomOriginal in "${execDir:=$PWD}"/**/*; do
 					((suffix++))
 				done
 
-				echo "renommage du fichier : mv '$nomOriginal' ==> '$nomModif'"
 				if test "$modif_activ" = true; then
-					mv  "$nomOriginal" "$nomModif"
+					mv -v "$nomOriginal" "$nomModif"| tee -a "$log_modifs"
 					NbFileModified+=1
-					echo "$NbFileModified RENOM : mv '$nomOriginal' en : '$nomModif'" >> "$log_modifs"
+				else
+          ((count++))
+					echo "SIMUL renommage du fichier : mv '$nomOriginal' ==> '$nomModif'" | tee -a "$log_pre_modifs"
 				fi
 			fi
 		fi
 	fi
-done
+
+done < <(find "${execDir:=$PWD}" -depth -print0)
 
 echo;
-echo "récapitulatif : modif count = $count"
-echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes."
-(( NbNOTScanned )) && echo "$NbNOTScanned non traités."
-echo;
-(( NbFileModified || NbRepModified )) && echo "Pour voir les modifications : cat '/tmp/modifs'"
-(( NbRepModified )) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete"
-echo;
+echo "récapitulatif : "
+((count)) && echo "modif count = $count . Voir les modifications prévues : cat '$log_pre_modifs'" && echo
+echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes." && echo;
+(( NbNOTScanned )) && echo "$NbNOTScanned non traités." && echo;
+(( NbFileModified || NbRepModified )) && echo "Pour voir les modifications : cat '$log_modifs'"
+(( NbRepModified )) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete" && echo;
 if (( NbFileNOTModified || NbRepNOTModified || LongPath)); then
 	echo "$NbFileNOTModified fichiers , $NbRepNOTModified répertoires n ' ayant pas pu etre modifiés"
 	echo "vous avez $LongPath répertoires de taille trop importante."
