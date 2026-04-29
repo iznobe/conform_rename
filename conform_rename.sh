@@ -12,7 +12,7 @@
 # --- Configuration ---
 
 modif_activ=false  # true pour appliquer les modifications
-execDir=""         # Chemin ABSOLU du dossier cible , vide = dossier de travail du terminal : $PWD
+execDir=""         # Chemin ABSOLU du dossier cible (vide = dossier de travail du terminal : $PWD
 
 #### FIN ####
 
@@ -122,7 +122,7 @@ while IFS= read -r -d '' nomOriginal; do
 					((suffix++))
 				done
 
-				if test "$modif_activ" = true; then
+				if "$modif_activ"; then
 					mv -v "$nomOriginal" "$nomModif" | tee -a "$log_modifs"
 					((NbRepModified++))
 				else
@@ -130,7 +130,7 @@ while IFS= read -r -d '' nomOriginal; do
 					echo "SIMUL dossier renommé : mv '$nomOriginal' ==> '$nomModif'" | tee -a "$log_pre_modifs"
 				fi
 			fi
-      
+
 		elif test -f "$nomOriginal" ; then # si c est un fichier
 			if test ! -w "$(dirname "${nomOriginal}")"; then # on verifie si le dossier parent est modifiable
 				((NbFileNOTModified++))
@@ -166,8 +166,8 @@ while IFS= read -r -d '' nomOriginal; do
 					((suffix++))
 				done
 
-				if test "$modif_activ" = true; then
-					mv -v "$nomOriginal" "$nomModif"| tee -a "$log_modifs"
+				if "$modif_activ"; then
+					mv -v "$nomOriginal" "$nomModif" | tee -a "$log_modifs"
 					NbFileModified+=1
 				else
           ((count++))
