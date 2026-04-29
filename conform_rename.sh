@@ -101,7 +101,7 @@ while IFS= read -r -d '' nomOriginal; do
 
 	if [[ "$nomOriginal" != "$nomModif" ]]; then # si il y a un changement a effectuer
 		# le nom du chemin ne doit pas dépasser 256 en standard , et chemin étendu 32767 max , prefixe windows = "\\?\"
-		if (( "${#nomModif}" >= 256 )) ; then # Vérifions si la longueur n'est pas excessive
+		if (("${#nomModif}" >= 256)) ; then # Vérifions si la longueur n'est pas excessive
 			((LongPath++))
 			echo "Le nom de chemin de fichier est trop long ! impossible de renommer '$nomOriginal' en '$nomModif'" >> "$log_error"
 		fi
@@ -179,10 +179,10 @@ echo;
 echo "récapitulatif : "
 ((count)) && echo "modif count = $count . Voir les modifications prévues : cat '$log_pre_modifs'" && echo
 echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes." && echo;
-(( NbNOTScanned )) && echo "$NbNOTScanned non traités." && echo;
-(( NbFileModified || NbRepModified )) && echo "Pour voir les modifications : cat '$log_modifs'"
-(( NbRepModified )) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete" && echo;
-if (( NbFileNOTModified || NbRepNOTModified || LongPath)); then
+((NbNOTScanned)) && echo "$NbNOTScanned non traités." && echo;
+((NbFileModified || NbRepModified)) && echo "Pour voir les modifications : cat '$log_modifs'"
+((NbRepModified)) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete" && echo;
+if ((NbFileNOTModified || NbRepNOTModified || LongPath)); then
 	echo "$NbFileNOTModified fichiers , $NbRepNOTModified répertoires n ' ayant pas pu etre modifiés"
 	echo "vous avez $LongPath répertoires de taille trop importante."
 	echo "liste des erreurs : cat '$log_error'"
