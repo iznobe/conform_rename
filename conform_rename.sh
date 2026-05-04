@@ -29,9 +29,7 @@ if ! "$modif_activ"; then
 else
 	echo "Modifications du $now" | tee -a "$log_modifs"
 	echo "liste des erreurs du $now ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" | tee -a "$log_error"
-fi
-
-            
+fi            
 
 clean_name() { # Nettoie un nom de fichier/dossier
 	printf '%s' "$1" | awk '
@@ -161,7 +159,7 @@ while IFS= read -r -d '' nomOriginal; do
 					fi
 				fi
 
-				while [[ -e "$nomModif" ]]; do
+				while test -e "$nomModif"; do
 					nomModif="${directory}/${base}_${suffix}${ext}"
 					((suffix++))
 				done
