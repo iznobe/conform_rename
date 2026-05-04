@@ -17,19 +17,18 @@ execDir=""         # Chemin ABSOLU du dossier cible , vide = dossier de travail 
 #### FIN ####
 
 # --- Variables globales ---
-declare -i count=0 LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0; Debut=$(date +%s);
+declare -i count=0 LongPath=0 NbNOTScanned=0 NbRepScanned=0 NbFileScanned=0 NbRepModified=0 NbFileModified=0 NbRepNOTModified=0 NbFileNOTModified=0;
 declare log_error="/tmp/error.log" log_modifs="/tmp/modifs.log" log_pre_modifs="/tmp/pre_modifs.log"
 
 # --- Initialisation ---
 shopt -s globstar nullglob
 now=$(date +"%d/%m/%Y %H:%M:%S")
-
 if ! "$modif_activ"; then
 	echo "Récapitulatif de la simulation du $now" | tee -a "$log_pre_modifs"
 else
 	echo "Modifications du $now" | tee -a "$log_modifs"
 	echo "liste des erreurs du $now ( fichiers ou dossiers ) n ' ayant pas pu etre modifiés :" | tee -a "$log_error"
-fi            
+fi
 
 clean_name() { # Nettoie un nom de fichier/dossier
 	printf '%s' "$1" | awk '
@@ -159,7 +158,7 @@ while IFS= read -r -d '' nomOriginal; do
 					fi
 				fi
 
-				while test -e "$nomModif"; do
+				while [[ -e "$nomModif" ]]; do
 					nomModif="${directory}/${base}_${suffix}${ext}"
 					((suffix++))
 				done
@@ -180,7 +179,7 @@ done < <(find "${execDir:=$PWD}" -depth -print0)
 echo;
 echo "récapitulatif : "
 ((count)) && echo "modif count = $count . Voir les modifications prévues : cat '$log_pre_modifs'" && echo
-echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $(($(date +%s)-Debut)) secondes." && echo;
+echo "$NbRepScanned dossiers et $NbFileScanned fichiers traités, $NbRepModified répertoires modifiés, $NbFileModified fichiers modifiés , le tout en $SECONDS secondes." && echo;
 ((NbNOTScanned)) && echo "$NbNOTScanned non traités." && echo;
 ((NbFileModified || NbRepModified)) && echo "Pour voir les modifications : cat '$log_modifs'"
 ((NbRepModified)) && echo "pour supprimer les dossiers vides , copiez collez la commande suivante : find '${execDir:=$PWD}' -type d -empty -delete" && echo;
