@@ -123,7 +123,7 @@ while IFS= read -r -d '' nomOriginal; do
 					mv -v "$nomOriginal" "$nomModif" | tee -a "$log_modifs"
 					((NbRepModified++))
 				else
-          ((count++))
+					((count++))
 					echo "SIMUL dossier renommé : mv '$nomOriginal' ==> '$nomModif'" | tee -a "$log_pre_modifs"
 				fi
 			fi
@@ -167,7 +167,7 @@ while IFS= read -r -d '' nomOriginal; do
 					mv -v "$nomOriginal" "$nomModif" | tee -a "$log_modifs"
 					NbFileModified+=1
 				else
-          ((count++))
+					((count++))
 					echo "SIMUL renommage du fichier : mv '$nomOriginal' ==> '$nomModif'" | tee -a "$log_pre_modifs"
 				fi
 			fi
