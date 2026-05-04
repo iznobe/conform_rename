@@ -158,7 +158,7 @@ while IFS= read -r -d '' nomOriginal; do
 					fi
 				fi
 
-				while [[ -e "$nomModif" ]]; do
+				while test -e "$nomModif"; do
 					nomModif="${directory}/${base}_${suffix}${ext}"
 					((suffix++))
 				done
